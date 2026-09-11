@@ -220,7 +220,19 @@ class FirebaseService {
       }
     }
     this.currentUser = null;
-    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+      localStorage.removeItem(STORAGE_KEYS.CLOUD_MOCK_CACHE);
+      localStorage.removeItem(STORAGE_KEYS.LAST_STATE);
+      sessionStorage.clear();
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => caches.delete(key));
+        }).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
     this.notifyAuthListeners(null);
   }
 

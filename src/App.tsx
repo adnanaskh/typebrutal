@@ -165,11 +165,19 @@ export const App: React.FC = () => {
     } catch {
       // ignore
     }
-    // Wipe local user state and reload to blank 0 stage
-    StorageService.resetAllData();
-    localStorage.removeItem('typebrutal_auth_user_v1');
-    localStorage.removeItem('typebrutal_cloud_mock_v1');
-    window.location.href = '/';
+    // Wipe all local storage, session storage, and browser caches
+    StorageService.clearAllCachesAndStorage();
+    if (typeof window !== 'undefined') {
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        } catch {
+          // ignore
+        }
+      }
+      window.location.href = '/';
+    }
   };
 
   // Permanently Delete Account Handler (removes user completely from Firebase Auth & Database)
@@ -191,11 +199,19 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Account deletion error:', err);
     } finally {
-      // Purge all local training data and reload to home page with blank 0 stage
-      StorageService.resetAllData();
-      localStorage.removeItem('typebrutal_auth_user_v1');
-      localStorage.removeItem('typebrutal_cloud_mock_v1');
-      window.location.href = '/';
+      // Purge all local training data, caches, and reload to home page with blank 0 stage
+      StorageService.clearAllCachesAndStorage();
+      if (typeof window !== 'undefined') {
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((name) => caches.delete(name)));
+          } catch {
+            // ignore
+          }
+        }
+        window.location.href = '/';
+      }
     }
   };
 

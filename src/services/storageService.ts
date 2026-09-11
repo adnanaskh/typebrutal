@@ -304,10 +304,36 @@ export class StorageService {
   }
 
   public static resetAllData(): void {
-    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
-    localStorage.removeItem(STORAGE_KEYS.HISTORY);
-    localStorage.removeItem(STORAGE_KEYS.STREAK);
-    localStorage.removeItem(STORAGE_KEYS.MISTAKES);
-    localStorage.removeItem(STORAGE_KEYS.LAST_STATE);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+      localStorage.removeItem(STORAGE_KEYS.HISTORY);
+      localStorage.removeItem(STORAGE_KEYS.STREAK);
+      localStorage.removeItem(STORAGE_KEYS.MISTAKES);
+      localStorage.removeItem(STORAGE_KEYS.LAST_STATE);
+    } catch {
+      // ignore
+    }
+  }
+
+  public static clearAllCachesAndStorage(): void {
+    try {
+      localStorage.clear();
+    } catch {
+      this.resetAllData();
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
+    try {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => caches.delete(key));
+        }).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
   }
 }
