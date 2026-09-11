@@ -114,7 +114,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
                     )}
                   </div>
                   <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 font-mono">
-                    {currentUser.email || 'Synchronized with Firebase'}
+                    {currentUser.email || 'Synchronized with Cloud'}
                   </p>
                 </div>
               </div>
@@ -135,7 +135,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
               <div className="flex items-center gap-2 text-xs font-black">
                 <span className={`w-3 h-3 rounded-full ${isSyncing ? 'bg-neo-yellow animate-ping' : 'bg-neo-lime'} border border-black`} />
                 <span className="uppercase text-black dark:text-white">
-                  {isSyncing ? 'Syncing to Firebase Database...' : syncedToast ? '✅ Synced to Firebase!' : 'Firebase Cloud Sync Active'}
+                  {isSyncing ? 'Syncing to Cloud...' : syncedToast ? '✅ Synced to Cloud!' : 'Sync with Cloud'}
                 </span>
               </div>
 
@@ -143,7 +143,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
                 onClick={handleSyncClick}
                 disabled={isSyncing}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-neo-cyan text-black font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] hover:bg-cyan-400 transition-all active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
-                title="Force refresh synchronization with Firebase Realtime Database & Firestore"
+                title="Force refresh synchronization with cloud"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span>{syncedToast ? 'Synced!' : 'Sync Now'}</span>
@@ -188,7 +188,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
               </div>
             ) : (
               <div className="p-4 bg-gray-50 dark:bg-black border-2 border-black text-center text-xs font-bold text-gray-500">
-                Complete a typing test to automatically synchronize your first performance state to Firebase.
+                Complete a typing test to automatically synchronize your first performance state to the cloud.
               </div>
             )}
 
