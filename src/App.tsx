@@ -240,9 +240,13 @@ export const App: React.FC = () => {
     missedKeys: Record<string, number>;
     timeline: WpmPoint[];
   }) => {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const localDateFormatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
     const newResult: TestResult = {
       id: `test_${Date.now()}`,
-      date: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      date: localDateFormatted,
       timestamp: Date.now(),
       wpm: stats.wpm,
       rawWpm: stats.rawWpm,

@@ -62,6 +62,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
   const [comboPopup, setComboPopup] = useState<string | null>(null);
 
   // Stats Tracking
+  const startTimeRef = useRef<number | null>(null);
   const missedKeysRef = useRef<Record<string, number>>({});
   const timelineRef = useRef<WpmPoint[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
@@ -86,6 +87,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     setLiveErrors(0);
     setStreakCombo(0);
     setComboPopup(null);
+    startTimeRef.current = null;
     missedKeysRef.current = {};
     timelineRef.current = [];
 
@@ -135,8 +137,8 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
   const extraCharsMapRef = useRef<Record<number, string>>(extraCharsMap);
   extraCharsMapRef.current = extraCharsMap;
 
-  // Finish Test Routine
-  const finishTest = useCallback((finalElapsed: number) => {
+  // Finish Test Routine with accurate duration and stats
+  const finishTest = useCallback((forcedDuration?: number) => {
     if (isFinished) return;
     setIsFinished(true);
     if (timerIntervalRef.current) {
@@ -144,7 +146,11 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
       timerIntervalRef.current = null;
     }
 
-    const duration = Math.max(1, finalElapsed);
+    const now = performance.now();
+    const computedDuration = forcedDuration ?? (startTimeRef.current ? Math.max(0.2, (now - startTimeRef.current) / 1000) : 1);
+    const exactDuration = Math.max(0.2, computedDuration);
+    const durationInSeconds = Math.max(1, Math.round(exactDuration));
+
     let correct = 0;
     let incorrect = 0;
     let extra = 0;
@@ -158,25 +164,25 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     });
 
     const totalTyped = correct + incorrect + extra;
-    const finalWpm = StatsCalculator.calculateWpm(correct, duration);
-    const rawWpm = StatsCalculator.calculateRawWpm(totalTyped, duration);
-    const cpm = StatsCalculator.calculateCpm(correct, duration);
+    const finalWpm = StatsCalculator.calculateWpm(correct, exactDuration);
+    const rawWpm = StatsCalculator.calculateRawWpm(totalTyped, exactDuration);
+    const cpm = StatsCalculator.calculateCpm(correct, exactDuration);
     const accuracy = StatsCalculator.calculateAccuracy(correct, totalTyped);
 
-    // Ensure final timeline point exists
-    const roundedSec = Math.max(1, Math.round(duration));
-    const existingIdx = timelineRef.current.findIndex((p) => p.second === roundedSec);
-    const finalPoint = {
-      second: roundedSec,
+    // Ensure final timeline point exists with clean progression
+    const finalPoint: WpmPoint = {
+      second: durationInSeconds,
       wpm: finalWpm,
       rawWpm,
       errors: incorrect + extra,
     };
+    const existingIdx = timelineRef.current.findIndex((p) => p.second === durationInSeconds);
     if (existingIdx >= 0) {
       timelineRef.current[existingIdx] = finalPoint;
     } else {
       timelineRef.current.push(finalPoint);
     }
+    timelineRef.current.sort((a, b) => a.second - b.second);
 
     const consistency = StatsCalculator.calculateConsistency(timelineRef.current);
 
@@ -189,7 +195,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
       cpm,
       accuracy,
       consistency,
-      duration,
+      duration: durationInSeconds,
       correctChars: correct,
       incorrectChars: incorrect,
       extraChars: extra,
@@ -198,58 +204,62 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     });
   }, [isFinished, onTestComplete]);
 
-  const finishTestRef = useRef<(finalElapsed: number) => void>(finishTest);
+  const finishTestRef = useRef<(forcedDuration?: number) => void>(finishTest);
   finishTestRef.current = finishTest;
 
-  // Timer Tick - runs cleanly every 1 second while typing
+  // High-precision Timer Tick - checks wall-clock time continuously
   useEffect(() => {
     if (hasStarted && !isFinished) {
       timerIntervalRef.current = window.setInterval(() => {
-        setElapsedTime((prev) => {
-          const newElapsed = prev + 1;
+        if (!startTimeRef.current) return;
+        const now = performance.now();
+        const exactElapsed = (now - startTimeRef.current) / 1000;
+        const currentSecondInt = Math.floor(exactElapsed);
 
-          // Compute live metrics from latest state refs
-          let correct = 0;
-          let incorrect = 0;
-          let extra = 0;
-          charStatesRef.current.forEach((c) => {
-            if (c.state === 'correct') correct++;
-            else if (c.state === 'incorrect') incorrect++;
-          });
-          Object.values(extraCharsMapRef.current).forEach((str) => {
-            extra += str.length;
-          });
-          const totalTyped = correct + incorrect + extra;
+        // Compute live metrics from latest state refs
+        let correct = 0;
+        let incorrect = 0;
+        let extra = 0;
+        charStatesRef.current.forEach((c) => {
+          if (c.state === 'correct') correct++;
+          else if (c.state === 'incorrect') incorrect++;
+        });
+        Object.values(extraCharsMapRef.current).forEach((str) => {
+          extra += str.length;
+        });
+        const totalTyped = correct + incorrect + extra;
 
-          const curWpm = StatsCalculator.calculateWpm(correct, newElapsed);
-          const rawWpm = StatsCalculator.calculateRawWpm(totalTyped, newElapsed);
+        if (exactElapsed >= 0.5) {
+          const curWpm = StatsCalculator.calculateWpm(correct, exactElapsed);
+          const rawWpm = StatsCalculator.calculateRawWpm(totalTyped, exactElapsed);
           const curAcc = StatsCalculator.calculateAccuracy(correct, totalTyped);
 
           setLiveWpm(curWpm);
           setLiveAccuracy(curAcc);
 
-          // Record timeline point without duplicate seconds
-          const existingIdx = timelineRef.current.findIndex((p) => p.second === newElapsed);
-          const pt = {
-            second: newElapsed,
-            wpm: curWpm,
-            rawWpm,
-            errors: incorrect + extra,
-          };
-          if (existingIdx >= 0) {
-            timelineRef.current[existingIdx] = pt;
-          } else {
-            timelineRef.current.push(pt);
+          if (currentSecondInt >= 1) {
+            const existingIdx = timelineRef.current.findIndex((p) => p.second === currentSecondInt);
+            const pt: WpmPoint = {
+              second: currentSecondInt,
+              wpm: curWpm,
+              rawWpm,
+              errors: incorrect + extra,
+            };
+            if (existingIdx >= 0) {
+              timelineRef.current[existingIdx] = pt;
+            } else {
+              timelineRef.current.push(pt);
+            }
           }
+        }
 
-          // Check if time-based test has expired
-          if (testType === 'time' && newElapsed >= testConfig) {
-            finishTestRef.current(newElapsed);
-          }
+        setElapsedTime(currentSecondInt);
 
-          return newElapsed;
-        });
-      }, 1000);
+        // Check if time-based test has expired
+        if (testType === 'time' && exactElapsed >= testConfig) {
+          finishTestRef.current(testConfig);
+        }
+      }, 200);
     }
 
     return () => {
@@ -292,6 +302,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
 
     // Start timer on first printable keystroke
     if (!hasStarted) {
+      startTimeRef.current = performance.now();
       setHasStarted(true);
     }
 
@@ -389,8 +400,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
 
         // Check if test finished (words mode or completed text)
         if (nextIdx >= charStates.length) {
-          const currentSecs = Math.max(1, elapsedTime);
-          finishTest(currentSecs);
+          finishTest();
           return;
         }
 
@@ -415,8 +425,7 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
         setCurrentIndex(nextIdx);
 
         if (nextIdx >= charStates.length) {
-          const currentSecs = Math.max(1, elapsedTime);
-          finishTest(currentSecs);
+          finishTest();
           return;
         }
 

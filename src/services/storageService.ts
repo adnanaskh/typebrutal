@@ -96,15 +96,22 @@ export class StorageService {
     };
   }
 
+  public static getLocalDateString(d: Date = new Date()): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   public static updateStreak(): StreakData {
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.getLocalDateString(new Date());
     const streak = this.getStreak();
 
     if (streak.lastActiveDate === today) {
       return streak; // already counted today
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = this.getLocalDateString(yesterdayDate);
 
     if (streak.lastActiveDate === yesterday) {
       streak.currentStreak += 1;

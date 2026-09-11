@@ -47,10 +47,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
   // Format time
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const totalSecs = Math.max(0, Math.round(seconds));
+    const mins = Math.floor(totalSecs / 60);
     const hrs = Math.floor(mins / 60);
-    if (hrs > 0) return `${hrs}h ${mins % 60}m`;
-    return `${mins}m ${seconds % 60}s`;
+    const remMins = mins % 60;
+    const remSecs = totalSecs % 60;
+    if (hrs > 0) return `${hrs}h ${remMins}m ${remSecs}s`;
+    if (mins > 0) return `${mins}m ${remSecs}s`;
+    return `${remSecs}s`;
   };
 
   // Export data
@@ -380,6 +384,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <th className="p-2.5">Raw WPM</th>
                   <th className="p-2.5">Accuracy</th>
                   <th className="p-2.5">Consistency</th>
+                  <th className="p-2.5">Duration</th>
                   <th className="p-2.5">Mode</th>
                   <th className="p-2.5">Difficulty</th>
                 </tr>
@@ -396,6 +401,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                     <td className="p-2.5 text-gray-600 dark:text-gray-300">{test.rawWpm}</td>
                     <td className="p-2.5 font-bold text-emerald-600 dark:text-emerald-400">{test.accuracy}%</td>
                     <td className="p-2.5 text-gray-600 dark:text-gray-300">{test.consistency}%</td>
+                    <td className="p-2.5 font-mono text-gray-600 dark:text-gray-300">{test.duration}s</td>
                     <td className="p-2.5 uppercase">{test.testType} ({test.testConfig})</td>
                     <td className="p-2.5">
                       <span className="px-1.5 py-0.5 bg-black text-white text-[10px] font-black uppercase">
