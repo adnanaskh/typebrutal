@@ -147,8 +147,12 @@ export const App: React.FC = () => {
         // Refresh site after login to load & display all Firebase data cleanly
         window.location.reload();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Google Sign In error:', err);
+      const message = (err as Error)?.message || 'Authentication failed. Please try again.';
+      if (!message.includes('popup was closed')) {
+        alert(`Google Sign-In Error:\n${message}`);
+      }
     } finally {
       setIsSyncing(false);
     }

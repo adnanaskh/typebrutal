@@ -113,7 +113,7 @@ class FirebaseService {
           if (fbUser) {
             const userProfile: UserProfile = {
               uid: fbUser.uid,
-              displayName: fbUser.displayName || 'Typing Champion',
+              displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Typing Champion',
               email: fbUser.email,
               photoURL: fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
               isDemo: false,
@@ -122,16 +122,6 @@ class FirebaseService {
             localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(userProfile));
             this.notifyAuthListeners(userProfile);
           } else {
-            // Check if demo user was active
-            const cached = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-            if (cached) {
-              const parsed: UserProfile = JSON.parse(cached);
-              if (parsed.isDemo) {
-                this.currentUser = parsed;
-                this.notifyAuthListeners(parsed);
-                return;
-              }
-            }
             this.currentUser = null;
             localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
             this.notifyAuthListeners(null);
@@ -140,14 +130,19 @@ class FirebaseService {
 
         return;
       }
-    } catch {
-      // Fallback handling
+    } catch (err) {
+      console.error('Firebase initialization error:', err);
     }
 
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
       if (cached) {
-        this.currentUser = JSON.parse(cached);
+        const parsed: UserProfile = JSON.parse(cached);
+        if (!parsed.isDemo) {
+          this.currentUser = parsed;
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+        }
       }
     } catch {
       this.currentUser = null;
@@ -171,43 +166,48 @@ class FirebaseService {
   }
 
   public isRealFirebaseConfigured(): boolean {
-    return Boolean(this.isInitialized && this.auth && this.db);
+    return Boolean(this.isInitialized && this.auth);
   }
 
-  // Sign in with Google
+  // Sign in with Google (Authenticates with real Firebase Google Auth)
   public async signInWithGoogle(): Promise<UserProfile> {
-    if (this.isInitialized && this.auth && this.googleProvider) {
-      try {
-        const result = await signInWithPopup(this.auth, this.googleProvider);
-        const fbUser = result.user;
-        const profile: UserProfile = {
-          uid: fbUser.uid,
-          displayName: fbUser.displayName || 'Google User',
-          email: fbUser.email,
-          photoURL: fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
-          isDemo: false,
-        };
-        this.currentUser = profile;
-        localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(profile));
-        this.notifyAuthListeners(profile);
-        return profile;
-      } catch (err: unknown) {
-        console.warn('Real Google Auth popup error/cancellation, falling back to simulated Google account:', err);
-      }
+    if (!this.isInitialized || !this.auth || !this.googleProvider) {
+      throw new Error(
+        'Firebase is not initialized. Please verify your VITE_FIREBASE_* environment variables in .env'
+      );
     }
 
-    // Simulated Google Account login fallback
-    const mockGoogleProfile: UserProfile = {
-      uid: 'google_user_adnan_master',
-      displayName: 'Adnan Ahmad',
-      email: 'adnan.typer@gmail.com',
-      photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-      isDemo: true,
-    };
-    this.currentUser = mockGoogleProfile;
-    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(mockGoogleProfile));
-    this.notifyAuthListeners(mockGoogleProfile);
-    return mockGoogleProfile;
+    try {
+      const result = await signInWithPopup(this.auth, this.googleProvider);
+      const fbUser = result.user;
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Google User',
+        email: fbUser.email,
+        photoURL: fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
+        isDemo: false,
+      };
+      this.currentUser = profile;
+      localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(profile));
+      this.notifyAuthListeners(profile);
+      return profile;
+    } catch (err: unknown) {
+      console.error('Real Google Auth popup error:', err);
+      const fbErr = err as { code?: string; message?: string };
+      let message = 'Failed to sign in with Google.';
+      if (fbErr?.code === 'auth/unauthorized-domain') {
+        message = `Domain "${window.location.hostname}" is not authorized. Add it in Firebase Console > Authentication > Settings > Authorized domains.`;
+      } else if (fbErr?.code === 'auth/operation-not-allowed') {
+        message = 'Google Sign-In is not enabled. Enable it in Firebase Console > Authentication > Sign-in method > Google.';
+      } else if (fbErr?.code === 'auth/popup-closed-by-user') {
+        message = 'Sign-in popup was closed before completing authentication.';
+      } else if (fbErr?.code === 'auth/popup-blocked') {
+        message = 'Sign-in popup was blocked by the browser. Please allow popups for this site.';
+      } else if (fbErr?.message) {
+        message = fbErr.message;
+      }
+      throw new Error(message);
+    }
   }
 
   // Sign out
