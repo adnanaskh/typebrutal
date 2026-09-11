@@ -75,9 +75,14 @@ export const App: React.FC = () => {
     return () => unsub();
   }, []);
 
-  // Sync theme with body class and apply sound settings
+  // Sync theme with body class, dark mode toggle on root html, and apply sound settings
   useEffect(() => {
     document.body.className = `theme-${settings.theme}`;
+    if (settings.theme === 'neo-dark' || settings.theme === 'matrix-acid') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
     soundEngine.setProfile(settings.soundProfile);
     soundEngine.setVolume(settings.soundVolume);
   }, [settings.theme, settings.soundProfile, settings.soundVolume]);
