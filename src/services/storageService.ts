@@ -46,6 +46,12 @@ export class StorageService {
     }
   }
 
+  public static formatLocalDateTime(dateOrTimestamp: Date | number = new Date()): string {
+    const d = typeof dateOrTimestamp === 'number' ? new Date(dateOrTimestamp) : dateOrTimestamp;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   // 2. Test History
   public static getHistory(): TestResult[] {
     try {
@@ -53,7 +59,12 @@ export class StorageService {
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
-          return parsed;
+          return parsed.map((item: TestResult) => {
+            if (item && typeof item.timestamp === 'number') {
+              return { ...item, date: StorageService.formatLocalDateTime(item.timestamp) };
+            }
+            return item;
+          });
         }
       }
     } catch {
@@ -224,7 +235,13 @@ export class StorageService {
   public static getLastState(): LastTrainingState | null {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.LAST_STATE);
-      if (data) return JSON.parse(data);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed && typeof parsed.timestamp === 'number') {
+          return { ...parsed, date: StorageService.formatLocalDateTime(parsed.timestamp) };
+        }
+        return parsed;
+      }
     } catch {
       // ignore
     }

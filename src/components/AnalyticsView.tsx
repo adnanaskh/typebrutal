@@ -278,7 +278,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                     {/* Tooltip */}
                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center bg-black text-white text-[10px] font-mono px-2 py-1 z-20 whitespace-nowrap border border-white">
                       <span>{test.wpm} WPM ({test.accuracy}%)</span>
-                      <span className="text-gray-400">{test.difficulty} • {test.date.slice(5)}</span>
+                      <span className="text-gray-400">{test.difficulty} • {(test.timestamp ? StorageService.formatLocalDateTime(test.timestamp) : test.date).slice(5)}</span>
                     </div>
 
                     {/* Bar */}
@@ -392,7 +392,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               <tbody>
                 {filteredHistory.map((test) => (
                   <tr key={test.id} className="border-b border-gray-200 dark:border-gray-800 hover:bg-neo-yellow/10">
-                    <td className="p-2.5 text-gray-600 dark:text-gray-400">{test.date}</td>
+                    <td className="p-2.5 text-gray-600 dark:text-gray-400">{test.timestamp ? StorageService.formatLocalDateTime(test.timestamp) : test.date}</td>
                     <td className="p-2.5 font-bold">
                       <span className={`px-1.5 py-0.5 border border-black ${test.wpm >= 70 ? 'bg-neo-lime text-black font-black' : 'bg-neo-yellow text-black'}`}>
                         {test.wpm}

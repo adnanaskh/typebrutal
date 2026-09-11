@@ -11,6 +11,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import type { UserProfile, LastTrainingState } from '../types';
+import { StorageService } from '../services/storageService';
 
 interface FirebaseModalProps {
   isOpen: boolean;
@@ -159,7 +160,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
                   </span>
                   <span className="text-[11px] font-mono text-gray-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {lastState.date}
+                    {lastState.timestamp ? StorageService.formatLocalDateTime(lastState.timestamp) : lastState.date}
                   </span>
                 </div>
 
