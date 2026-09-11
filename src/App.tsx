@@ -61,6 +61,7 @@ export const App: React.FC = () => {
 
   // Completed Test Result
   const [latestResult, setLatestResult] = useState<TestResult | null>(null);
+  const [testSessionKey, setTestSessionKey] = useState<number>(0);
 
   // Virtual Keyboard state
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -99,6 +100,7 @@ export const App: React.FC = () => {
     const configValue = targetType === 'time' ? duration : words;
     const payload = await TextEngine.generateText(targetDifficulty, targetType, configValue, keys);
     setTextPayload(payload);
+    setTestSessionKey((k) => k + 1);
     setIsLoadingText(false);
     setTestState('idle');
   }, [difficulty, testType, timeDuration, wordCount, drillKeys]);
@@ -305,18 +307,21 @@ export const App: React.FC = () => {
 
   // Reset test with same text
   const handleRetrySameText = () => {
+    setTestSessionKey((k) => k + 1);
     setTestState('idle');
     setLatestResult(null);
   };
 
   // Next test with new text
   const handleNextTest = () => {
+    setTestSessionKey((k) => k + 1);
     setLatestResult(null);
     loadNewText();
   };
 
   // Launch targeted mistake drill
   const handleStartMistakeDrill = (keys: string[]) => {
+    setTestSessionKey((k) => k + 1);
     setDrillKeys(keys);
     setDifficulty('drill');
     setActiveView('trainer');
@@ -432,6 +437,7 @@ export const App: React.FC = () => {
             {/* Live Typing Canvas */}
             {!isLoadingText ? (
               <TypingCanvas
+                key={`typing-canvas-${testSessionKey}`}
                 text={textPayload.text}
                 author={textPayload.author}
                 source={textPayload.source}

@@ -129,6 +129,12 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isFocused]);
 
+  // Keep latest mutable references to prevent interval teardowns
+  const charStatesRef = useRef<CharState[]>(charStates);
+  charStatesRef.current = charStates;
+  const extraCharsMapRef = useRef<Record<number, string>>(extraCharsMap);
+  extraCharsMapRef.current = extraCharsMap;
+
   // Finish Test Routine
   const finishTest = useCallback((finalElapsed: number) => {
     if (isFinished) return;
@@ -143,11 +149,11 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     let incorrect = 0;
     let extra = 0;
 
-    charStates.forEach((c) => {
+    charStatesRef.current.forEach((c) => {
       if (c.state === 'correct') correct++;
       else if (c.state === 'incorrect') incorrect++;
     });
-    Object.values(extraCharsMap).forEach((str) => {
+    Object.values(extraCharsMapRef.current).forEach((str) => {
       extra += str.length;
     });
 
@@ -156,6 +162,22 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     const rawWpm = StatsCalculator.calculateRawWpm(totalTyped, duration);
     const cpm = StatsCalculator.calculateCpm(correct, duration);
     const accuracy = StatsCalculator.calculateAccuracy(correct, totalTyped);
+
+    // Ensure final timeline point exists
+    const roundedSec = Math.max(1, Math.round(duration));
+    const existingIdx = timelineRef.current.findIndex((p) => p.second === roundedSec);
+    const finalPoint = {
+      second: roundedSec,
+      wpm: finalWpm,
+      rawWpm,
+      errors: incorrect + extra,
+    };
+    if (existingIdx >= 0) {
+      timelineRef.current[existingIdx] = finalPoint;
+    } else {
+      timelineRef.current.push(finalPoint);
+    }
+
     const consistency = StatsCalculator.calculateConsistency(timelineRef.current);
 
     soundEngine.playSuccessFanfare();
@@ -174,24 +196,27 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
       missedKeys: { ...missedKeysRef.current },
       timeline: [...timelineRef.current],
     });
-  }, [charStates, extraCharsMap, isFinished, onTestComplete]);
+  }, [isFinished, onTestComplete]);
 
-  // Timer Tick
+  const finishTestRef = useRef<(finalElapsed: number) => void>(finishTest);
+  finishTestRef.current = finishTest;
+
+  // Timer Tick - runs cleanly every 1 second while typing
   useEffect(() => {
     if (hasStarted && !isFinished) {
       timerIntervalRef.current = window.setInterval(() => {
         setElapsedTime((prev) => {
           const newElapsed = prev + 1;
 
-          // Compute live metrics
+          // Compute live metrics from latest state refs
           let correct = 0;
           let incorrect = 0;
           let extra = 0;
-          charStates.forEach((c) => {
+          charStatesRef.current.forEach((c) => {
             if (c.state === 'correct') correct++;
             else if (c.state === 'incorrect') incorrect++;
           });
-          Object.values(extraCharsMap).forEach((str) => {
+          Object.values(extraCharsMapRef.current).forEach((str) => {
             extra += str.length;
           });
           const totalTyped = correct + incorrect + extra;
@@ -203,17 +228,23 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
           setLiveWpm(curWpm);
           setLiveAccuracy(curAcc);
 
-          // Record timeline point
-          timelineRef.current.push({
+          // Record timeline point without duplicate seconds
+          const existingIdx = timelineRef.current.findIndex((p) => p.second === newElapsed);
+          const pt = {
             second: newElapsed,
             wpm: curWpm,
             rawWpm,
             errors: incorrect + extra,
-          });
+          };
+          if (existingIdx >= 0) {
+            timelineRef.current[existingIdx] = pt;
+          } else {
+            timelineRef.current.push(pt);
+          }
 
           // Check if time-based test has expired
           if (testType === 'time' && newElapsed >= testConfig) {
-            finishTest(newElapsed);
+            finishTestRef.current(newElapsed);
           }
 
           return newElapsed;
@@ -224,9 +255,10 @@ export const TypingCanvas: React.FC<TypingCanvasProps> = ({
     return () => {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
       }
     };
-  }, [hasStarted, isFinished, testType, testConfig, charStates, extraCharsMap, finishTest]);
+  }, [hasStarted, isFinished, testType, testConfig]);
 
   // Scroll active char into view smoothly
   useEffect(() => {
